@@ -1,0 +1,4 @@
+plexapi
+spotipy
+tqdm
+python-dotenv

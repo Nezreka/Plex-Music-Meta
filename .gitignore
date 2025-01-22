@@ -1,0 +1,31 @@
+# Python virtual environment
+venv/
+env/
+ENV/
+
+# Cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.cache
+.cache-*
+
+# JSON files (configuration, etc)
+*.json
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Database files
+#*.db
+#*.sqlite
+#*.sqlite3
+
+# Environment variables
+.env

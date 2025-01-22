@@ -1,0 +1,17 @@
+{
+    "plex": {
+        "base_url": "http://192.168.86.21:32400",
+        "token": "YOUR PLEX TOKEN"
+    },
+    "spotify": {
+        "client_id": "YOUR SPOTIFY ID",
+        "client_secret": "YOUR SPOTIFY SECRET"
+    },
+    "database": {
+        "path": "database/artists.db"
+    },
+    "logging": {
+        "path": "logs/app.log",
+        "level": "DEBUG"
+    }
+}
