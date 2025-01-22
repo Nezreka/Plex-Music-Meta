@@ -9,7 +9,7 @@ from spotify_handler import SpotifyHandler
 
 def setup_logging(config):
     logger = logging.getLogger('PlexMusicEnricher')
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     # Console handler with INFO level
     console_handler = logging.StreamHandler()
@@ -20,7 +20,7 @@ def setup_logging(config):
 
     # File handler with DEBUG level
     file_handler = logging.FileHandler(config.get_logging_config()['path'])
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.INFO)
     file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)
