@@ -1,8 +1,8 @@
-# src/spotify_handler.py
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import logging
 import time
+from tqdm import tqdm
 
 def sanitize_text(text):
     try:
@@ -32,10 +32,23 @@ class SpotifyHandler:
             self.logger.error(f"Failed to initialize Spotify client: {str(e)}")
             raise
 
-
+    def handle_rate_limit(self, retry_after):
+        """Handle rate limit by waiting the required time"""
+        self.logger.warning(f"Spotify rate limit reached. Waiting {retry_after} seconds...")
+        
+        # Create a countdown progress bar
+        for remaining in tqdm(
+            range(retry_after, 0, -1),
+            desc="Rate limit cooldown",
+            bar_format='{desc}: {n:>2d}s remaining |{bar:20}|',
+            ncols=60
+        ):
+            time.sleep(1)
+            
+        self.logger.info("Rate limit cooldown complete, resuming operations...")
 
     def _rate_limit(self):
-        """Implement rate limiting."""
+        """Implement basic rate limiting."""
         if self.last_request_time:
             elapsed = time.time() - self.last_request_time
             if elapsed < self.rate_limit_delay:
@@ -50,7 +63,7 @@ class SpotifyHandler:
             results = self.spotify.search(q=artist_name, type='artist', limit=1)
             if results['artists']['items']:
                 artist = results['artists']['items'][0]
-                self.logger.info(f"Found artist on Spotify: {artist['name']}")
+                self.logger.info(f"Found artist on Spotify: {sanitize_text(artist['name'])}")
                 self.logger.debug(f"Spotify artist details: {artist}")
                 return {
                     'spotify_id': artist['id'],
@@ -62,6 +75,11 @@ class SpotifyHandler:
             self.logger.info(f"No results found on Spotify for: {sanitize_text(artist_name)}")
             return None
         except Exception as e:
+            if hasattr(e, 'headers') and 'Retry-After' in e.headers:
+                retry_after = int(e.headers['Retry-After'])
+                self.handle_rate_limit(retry_after)
+                # Retry the search after waiting
+                return self.search_artist(artist_name)
             self.logger.error(f"Error searching for artist {sanitize_text(artist_name)}: {str(e)}")
             return None
 
@@ -79,5 +97,10 @@ class SpotifyHandler:
                 'popularity': artist['popularity']
             }
         except Exception as e:
+            if hasattr(e, 'headers') and 'Retry-After' in e.headers:
+                retry_after = int(e.headers['Retry-After'])
+                self.handle_rate_limit(retry_after)
+                # Retry after waiting
+                return self.get_artist_details(spotify_id)
             self.logger.error(f"Error getting artist details for ID {spotify_id}: {str(e)}")
             return None
