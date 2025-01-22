@@ -58,7 +58,7 @@ Create a `config.json` file in the project root with the following structure:
         "client_secret": "your-spotify-client-secret"
     },
     "database": {
-        "path": "processed_artists.db"
+        "path": "artists.db"
     },
     "logging": {
         "path": "logs/app.log",
