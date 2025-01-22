@@ -1,4 +1,6 @@
-plexapi
-spotipy
-tqdm
-python-dotenv
+plexapi>=4.15.4
+spotipy>=2.23.0
+tqdm>=4.66.1
+python-dotenv>=1.0.0
+requests>=2.31.0
+Pillow>=10.1.0
