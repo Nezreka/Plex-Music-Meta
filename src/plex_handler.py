@@ -5,12 +5,65 @@ import requests
 from urllib.parse import urlparse
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
+import threading
 
 class PlexHandler:
     def __init__(self, base_url, token):
         self.logger = logging.getLogger('PlexMusicEnricher')
         self.server = self._connect_to_plex(base_url, token)
         self.music_library = self._get_music_library()
+        self.thread_lock = threading.Lock()
+        self.max_workers = 4  # Adjust based on your system
+
+    def process_artist_batch(self, artists, db_handler, spotify_handler):
+        """Process a batch of artists in parallel."""
+        def process_single_artist(artist):
+            try:
+                with self.thread_lock:
+                    if db_handler.is_artist_processed(artist.ratingKey):
+                        return None
+
+                spotify_data = spotify_handler.search_artist(artist.title)
+                if spotify_data:
+                    details = spotify_handler.get_artist_details(spotify_data['spotify_id'])
+                    if details:
+                        spotify_data.update(details)
+
+                    success = self.update_artist_metadata(artist, spotify_data)
+                    
+                    with self.thread_lock:
+                        db_handler.mark_artist_processed(
+                            artist.ratingKey,
+                            artist.title,
+                            spotify_id=spotify_data['spotify_id'],
+                            success=success
+                        )
+                    return artist.title
+                else:
+                    with self.thread_lock:
+                        db_handler.mark_artist_processed(
+                            artist.ratingKey,
+                            artist.title,
+                            success=False,
+                            error_message="Not found on Spotify"
+                        )
+                    return None
+
+            except Exception as e:
+                self.logger.error(f"Error processing artist {artist.title}: {str(e)}")
+                with self.thread_lock:
+                    db_handler.mark_artist_processed(
+                        artist.ratingKey,
+                        artist.title,
+                        success=False,
+                        error_message=str(e)
+                    )
+                return None
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = [executor.submit(process_single_artist, artist) for artist in artists]
+            return [f.result() for f in futures if f.result() is not None]
 
     def _connect_to_plex(self, base_url, token):
         """Establish connection to Plex server."""
@@ -226,16 +279,9 @@ class PlexHandler:
         self.logger.info(f"Current thumb status: {'Valid' if has_valid_thumb else 'Invalid/Missing'}")
         self.logger.info(f"Current genres: {existing_genres}")
         self.logger.info(f"Needs processing: No genres")
+
         return True
-        if not has_valid_thumb:
-            self.logger.info(f"Needs processing: Missing or invalid thumb")
-            return True
-        elif not existing_genres:
-            self.logger.info(f"Needs processing: No genres")
-            return True
-        else:
-            self.logger.info(f"No processing needed: Has valid thumb and genres")
-            return False
+        
 
     def update_artist_metadata(self, artist, spotify_data):
         """Update artist metadata with Spotify information."""

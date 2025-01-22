@@ -4,6 +4,12 @@ from spotipy.oauth2 import SpotifyClientCredentials
 import logging
 import time
 
+def sanitize_text(text):
+    try:
+        return text.encode('ascii', 'replace').decode('ascii')
+    except:
+        return '[Complex Name]'
+
 class SpotifyHandler:
     def __init__(self, client_id, client_secret):
         self.logger = logging.getLogger('PlexMusicEnricher')
@@ -26,6 +32,8 @@ class SpotifyHandler:
             self.logger.error(f"Failed to initialize Spotify client: {str(e)}")
             raise
 
+
+
     def _rate_limit(self):
         """Implement rate limiting."""
         if self.last_request_time:
@@ -37,7 +45,7 @@ class SpotifyHandler:
     def search_artist(self, artist_name):
         """Search for an artist on Spotify and return their details."""
         self._rate_limit()
-        self.logger.info(f"Searching Spotify for artist: {artist_name}")
+        self.logger.info(f"Searching Spotify for artist: {sanitize_text(artist_name)}")
         try:
             results = self.spotify.search(q=artist_name, type='artist', limit=1)
             if results['artists']['items']:
@@ -51,10 +59,10 @@ class SpotifyHandler:
                     'images': artist['images'],
                     'popularity': artist['popularity']
                 }
-            self.logger.info(f"No results found on Spotify for: {artist_name}")
+            self.logger.info(f"No results found on Spotify for: {sanitize_text(artist_name)}")
             return None
         except Exception as e:
-            self.logger.error(f"Error searching for artist {artist_name}: {str(e)}")
+            self.logger.error(f"Error searching for artist {sanitize_text(artist_name)}: {str(e)}")
             return None
 
     def get_artist_details(self, spotify_id):

@@ -59,6 +59,10 @@ Create a `config.json` file in the project root with the following structure:
     },
     "database": {
         "path": "processed_artists.db"
+    },
+    "logging": {
+        "path": "logs/app.log",
+        "level": "DEBUG"
     }
 }
 ```

@@ -1,4 +1,3 @@
-# src/main.py
 import logging
 from tqdm import tqdm
 import time
@@ -7,21 +6,27 @@ from database_handler import DatabaseHandler
 from plex_handler import PlexHandler
 from spotify_handler import SpotifyHandler
 
+def sanitize_text(text):
+    """Sanitize text for console output"""
+    try:
+        return text.encode('ascii', 'replace').decode('ascii')
+    except:
+        return '[Complex Name]'
+
 def setup_logging(config):
     logger = logging.getLogger('PlexMusicEnricher')
     logger.setLevel(logging.INFO)
 
-    # Console handler with INFO level
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
+    # Create custom formatter that sanitizes messages
+    class SanitizedFormatter(logging.Formatter):
+        def format(self, record):
+            record.msg = sanitize_text(str(record.msg))
+            return super().format(record)
 
-    # File handler with DEBUG level
-    file_handler = logging.FileHandler(config.get_logging_config()['path'])
+    # File handler with sanitized formatter
+    file_handler = logging.FileHandler(config.get_logging_config()['path'], encoding='utf-8')
     file_handler.setLevel(logging.INFO)
-    file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_formatter = SanitizedFormatter('%(asctime)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)
 
@@ -35,97 +40,50 @@ def main():
     logger = setup_logging(config)
     
     try:
-        # Initialize handlers
-        logger.info("Initializing handlers...")
+        # Initialize handlers quietly
         db_handler = DatabaseHandler(config.get_database_config()['path'])
         plex_handler = PlexHandler(**config.get_plex_config())
         spotify_handler = SpotifyHandler(**config.get_spotify_config())
         
         # Get all artists
         artists = plex_handler.get_all_artists()
-        logger.info(f"Found {len(artists)} artists in Plex library")
+        total_artists = len(artists)
         
-        # Setup progress bar
-        pbar = tqdm(total=len(artists), desc="Processing artists")
+        # Setup progress bar with custom format
+        pbar = tqdm(
+            total=total_artists,
+            bar_format='{percentage:3.0f}% |{bar:20}| {n_fmt}/{total_fmt} '
+                      '[{elapsed}<{remaining}, {rate_fmt}] {desc}',
+            ncols=100
+        )
         
-        for artist in artists:
-            current_desc = f"Processing {artist.title:<30}"
-            pbar.set_description(current_desc)
-            logger.info(f"\n{'='*50}\nProcessing artist: {artist.title}")
+        # Process artists in batches
+        batch_size = 5
+        for i in range(0, len(artists), batch_size):
+            batch = artists[i:i + batch_size]
             
-            try:
-                # Skip if already processed
-                needs_processing = plex_handler.needs_processing(artist)
-                if db_handler.is_artist_processed(artist.ratingKey):
-                    logger.debug(f"Skipping {artist.title} - already processed")
-                    pbar.update(1)
-                    continue
-                
-                # Check if processing needed
-                if not needs_processing:
-                    logger.info(f"No processing needed for {artist.title}")
-                    db_handler.mark_artist_processed(
-                        artist.ratingKey,
-                        artist.title,
-                        success=True
-                    )
-                    pbar.update(1)
-                    continue
-                
-                logger.info(f"Searching Spotify for {artist.title}")
-                spotify_data = spotify_handler.search_artist(artist.title)
-                
-                if spotify_data:
-                    logger.info(f"Found {artist.title} on Spotify, getting details...")
-                    logger.debug(f"Spotify data: {spotify_data}")  # Add this line
-
-                    details = spotify_handler.get_artist_details(spotify_data['spotify_id'])
-                    if details:
-                        spotify_data.update(details)
-                        logger.debug(f"Combined Spotify data: {spotify_data}")
-                    
-                    success = plex_handler.update_artist_metadata(artist, spotify_data)
-                    logger.info(f"Metadata update {'successful' if success else 'failed'} for {artist.title}")
-                    
-                    db_handler.mark_artist_processed(
-                        artist.ratingKey,
-                        artist.title,
-                        spotify_id=spotify_data['spotify_id'],
-                        success=success
-                    )
-                else:
-                    logger.warning(f"Artist not found on Spotify: {artist.title}")
-                    db_handler.mark_artist_processed(
-                        artist.ratingKey,
-                        artist.title,
-                        success=False,
-                        error_message="Not found on Spotify"
-                    )
-                
-                # Rate limiting
-                time.sleep(0.5)
-                
-            except Exception as e:
-                logger.error(f"Error processing artist {artist.title}: {str(e)}")
-                db_handler.mark_artist_processed(
-                    artist.ratingKey,
-                    artist.title,
-                    success=False,
-                    error_message=str(e)
-                )
+            # Process batch
+            processed = plex_handler.process_artist_batch(batch, db_handler, spotify_handler)
             
-            finally:
-                pbar.update(1)
+            # Update progress bar with current artist (sanitized)
+            if batch:
+                current_artist = sanitize_text(batch[0].title)[:30]
+                pbar.set_description(f"Current: {current_artist:<30}")
+            
+            # Update progress
+            pbar.update(len(batch))
+            
+            # Rate limiting
+            time.sleep(0.5)
         
         pbar.close()
         
         # Show final statistics
         total, successful, failed = db_handler.get_processing_stats()
-        logger.info(f"\n{'='*50}")
-        logger.info(f"Processing completed. Total: {total}, Successful: {successful}, Failed: {failed}")
+        print(f"\nCompleted: {successful} successful, {failed} failed")
         
     except Exception as e:
-        logger.error(f"Application error: {str(e)}")
+        logger.error(f"Application error: {sanitize_text(str(e))}")
         raise
 
 if __name__ == "__main__":
