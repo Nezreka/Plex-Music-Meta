@@ -20,7 +20,7 @@ __pycache__/
 *.swo
 
 # Logs
-*.log
+
 
 # Database files
 #*.db

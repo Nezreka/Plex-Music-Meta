@@ -30,18 +30,23 @@ A Python command-line application that automatically enriches your Plex music li
 1. Clone the repository:
    ```bash
    git clone https://github.com/Nezreka/Plex-Music-Meta.git
-   cd plex-music-enricher
+   cd plex-music-meta
    ```
 2. Create and activate a virtual environment:
    ```bash
    python -m venv venv
-   source venv/bin/activate  # On Windows, use: venv\Scripts\activate
+   source venv/bin/activate  
    ```
-3. Install required packages:
+3. Create and activate a virtual environment on Windows:
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate  
+   ```
+4. Install required packages:
    ```bash
    pip install -r requirements.txt
    ```
-4. Rename 'config.json.example' to 'config.json'&#x20;
+5. Rename 'config.json.example' to 'config.json'&#x20;
 
 ## Configuration
 
