@@ -58,7 +58,7 @@ def main():
         )
         
         # Process artists in batches
-        batch_size = 5
+        batch_size = 3
         for i in range(0, len(artists), batch_size):
             batch = artists[i:i + batch_size]
             
