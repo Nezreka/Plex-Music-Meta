@@ -1,4 +1,4 @@
-# Plex Music Meta
+# Music Meta for PLEX
 
 A Python command-line application that automatically enriches your Plex music library metadata by fetching artist information from Spotify.
 
